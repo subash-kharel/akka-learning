@@ -73,6 +73,7 @@ object BankAccountExercise extends App {
         account ! Deposit(1000)
         account ! Withdraw(9000)
         account ! Withdraw(500)
+        account ! Statement
       case message => println(message.toString)
 
     }
@@ -83,11 +84,6 @@ object BankAccountExercise extends App {
   val person = system.actorOf(Props[Person], "personActor")
 
   person ! LiveTheLife(account)
-
-
-
-
-
 
 
 }
