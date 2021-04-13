@@ -26,7 +26,8 @@ object ActorsIntro extends App{
     def receive: PartialFunction[Any, Unit] = {
       case message: String =>
         println("[word counter] I have reveived : "+ message   )
-        message.split(" ")
+        totalWords +=
+        message.split(" ").length
 
       case msg => println(s"[word counter] I cannot understand ${msg.toString}")
     }
