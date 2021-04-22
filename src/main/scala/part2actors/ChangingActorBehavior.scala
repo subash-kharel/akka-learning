@@ -35,14 +35,14 @@ object ChangingActorBehavior extends App{
     override def receive: Receive = happyReceive
 
     def happyReceive: Receive = {
-      case Food(VEGETABLES) => context.become(sadReceive)//change my receive handler to sadReceive
+      case Food(VEGETABLES) => context.become(sadReceive, false)//change my receive handler to sadReceive
       case Food(CHOCOLATES) =>
       case Ask(_) => sender ()! KidAccept
     }
 
     def sadReceive: Receive = {
-      case Food(VEGETABLES)=> //stay sad
-      case Food(CHOCOLATES)=>  context.become(happyReceive)//change my receive handler to happyReceive
+      case Food(VEGETABLES)=> context.become(sadReceive, false) //stay sad
+      case Food(CHOCOLATES)=>  context.unbecome()
       case Ask(_) => sender() ! KidReject
     }
   }
@@ -63,9 +63,11 @@ object ChangingActorBehavior extends App{
       case MomStart(kidRef) =>
         //test our interaction
         kidRef ! Food(VEGETABLES)
+        kidRef ! Food(VEGETABLES)
+        kidRef ! Food(CHOCOLATES)
         kidRef ! Ask ("Do you want to play?")
       case KidAccept => println("yay, my kid is happy!")
-      case KidReject => println("it is okay my kid is healthy")
+      case KidReject => println("it is okay my kid is healthy even he is sad")
     }
   }
 
@@ -84,5 +86,28 @@ object ChangingActorBehavior extends App{
       kid receives Food(veg) -> kid will change the handler to sadReceive
       kid receives Ask(play?) -> kid replies with the sad Receive handler =>
       mom receives KidReject
+   */
+
+
+  /*
+     mom receives MomStart ( initially: stack: 1. happyReceive
+     kid reeives Food(veg) ---> Stack : 1. sadReceive
+                                        2. happyReceive
+     kid receives Food(veg) again -----> Stack : 1. sadReceive
+                                                 2. sadReceive
+                                                 3. happyReceive
+     kid receives Food(chocolate) then ------> Stack : 1. sadReceive ( popped the first one)
+                                                       2. happyReceive
+     since the top of the stack is sadReceive it will go inside the case class for sadReceive
+   */
+
+  /*
+  context.become(anotherHandler, true)
+  anotherHandler: must be of type Receive
+  boolean: replaces current handler(default), pass in false to stack the new handler on top
+
+  Reverting to the previous behavior: context.become() ---> pops the current behavior off the stack
+
+  Rules: Akka always uses the latest handler on top of the stack.
    */
 }
