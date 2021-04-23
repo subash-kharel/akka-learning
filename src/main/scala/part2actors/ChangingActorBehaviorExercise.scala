@@ -50,34 +50,41 @@ object ChangingActorBehaviorExercise  extends App {
   case class VoteStatusReply(candidate: Option[String])
 
   class Citizen extends Actor {
-    var candidate: Option[String] = None
     override def receive: Receive = {
-      case Vote(c) => candidate = Some(c)
-      case VoteStatusRequest => sender() ! VoteStatusReply(candidate)
+      case Vote(c) => context.become(voted(c))
+      case VoteStatusRequest => sender() ! VoteStatusReply(None)
+    }
+
+    def voted(candidate: String): Receive = {
+      case VoteStatusRequest => sender() ! VoteStatusReply(Some(candidate))
     }
   }
 
   case class AggregateVotes(citizens: Set[ActorRef])
   class VoteAggregator extends Actor {
-    var stillWaiting: Set[ActorRef] = Set()
-    var currentStats: Map[String, Int] = Map()
-    override def receive: Receive = {
+    override def receive: Receive = awaitingCommand
+
+    def awaitingCommand: Receive = {
       case AggregateVotes(citizens) =>
-        stillWaiting = citizens
-        citizens.foreach(citizenRef => citizenRef ! VoteStatusRequest)
+          citizens.foreach(citizenRef => citizenRef ! VoteStatusRequest)
+          context.become(awaitingStatus(citizens,Map()))
+    }
+
+    def awaitingStatus(stillWaiting: Set[ActorRef], currentStats: Map[String, Int]): Receive = {
+
       case VoteStatusReply(None) =>
-        //a citizen has not voted
-        sender() ! VoteStatusRequest //this might end up in an infinite loop
+        sender() ! VoteStatusRequest
       case VoteStatusReply(Some(candidate)) =>
         val newStillWaiting = stillWaiting - sender()
         val currentVotesOfCandidate = currentStats.getOrElse(candidate, 0)
-        currentStats = currentStats + (candidate -> (currentVotesOfCandidate +1))
+       val  newStats = currentStats + (candidate -> (currentVotesOfCandidate +1))
         if(newStillWaiting.isEmpty){
-          println(s"[aggregators poll stats: ${currentStats}")
+          println(s"[aggregators poll stats: ${newStats}")
         } else {
-          stillWaiting = newStillWaiting
+          context.become(awaitingStatus(newStillWaiting, newStats))
         }
     }
+
   }
 
   val alice = system.actorOf(Props[Citizen])
